@@ -1,0 +1,15 @@
+﻿{
+  "name": "com.vladislavtsurikov.analyzedependencies",
+  "version": "1.0.0",
+  "displayName": "AnalyzeDependencies",
+  "unity": "2021.3",
+  "description": "UPM package for VladislavTsurikov.AnalyzeDependencies.",
+  "dependencies": {
+    "com.cysharp.unitask": "2.5.10",
+    "com.vladislavtsurikov.core": "1.0.0",
+    "com.vladislavtsurikov.nody": "1.0.0",
+    "com.vladislavtsurikov.reflectionutility": "1.0.0",
+    "com.vladislavtsurikov.searchutility": "1.0.0",
+    "com.vladislavtsurikov.toolsystem": "1.0.0"
+  }
+}

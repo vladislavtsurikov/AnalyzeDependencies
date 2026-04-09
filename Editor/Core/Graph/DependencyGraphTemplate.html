@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Dependency Graph - Universal Toolkit</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+        }
+
+        #graph {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .node {
+            cursor: pointer;
+            stroke: #fff;
+            stroke-width: 2px;
+        }
+
+        .node.connected {
+            fill: #2196F3;
+        }
+
+        .node.independent {
+            fill: #9E9E9E;
+        }
+
+        .link {
+            stroke: #666;
+            stroke-opacity: 0.6;
+        }
+
+        .link.dependency-active {
+            stroke: #ff5252;
+            stroke-opacity: 1;
+        }
+
+        .link.link-dimmed {
+            stroke-opacity: 0.15;
+        }
+
+        .link.unused {
+            stroke: #f44336;
+            stroke-dasharray: 5,5;
+        }
+
+        .node-label {
+            font-size: 10px;
+            pointer-events: none;
+            fill: #fff;
+            text-anchor: middle;
+        }
+
+        .node.node-selected {
+            stroke: #ffd54f;
+            stroke-width: 4px;
+        }
+
+        .node.node-dependency {
+            fill: #ef5350;
+            stroke: #ffcdd2;
+        }
+
+        .node.node-dimmed {
+            opacity: 0.25;
+        }
+
+        .node-label.label-selected {
+            fill: #ffd54f;
+            font-weight: 700;
+        }
+
+        .node-label.label-dependency {
+            fill: #ff8a80;
+            font-weight: 700;
+        }
+
+        .node-label.label-dimmed {
+            opacity: 0.3;
+        }
+
+        .tooltip {
+            position: absolute;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #fff;
+            border-radius: 5px;
+            pointer-events: none;
+            font-size: 12px;
+            display: none;
+        }
+
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 300px;
+        }
+
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+        }
+
+        .stat {
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .legend {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px solid #444;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h1>Dependency Graph</h1>
+        <div class="stat">Total Assemblies: <strong id="totalAssemblies">0</strong></div>
+        <div class="stat">Selected: <strong id="selectedName">None</strong></div>
+        <div class="stat">Selected Dependencies: <strong id="selectedDeps">0</strong></div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #2196F3;"></div>
+                <span>Asmdef with dependencies</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #9E9E9E;"></div>
+                <span>Asmdef without dependencies</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ef5350;"></div>
+                <span>Selected node dependencies</span>
+            </div>
+        </div>
+    </div>
+
+    <div id="tooltip" class="tooltip"></div>
+    <svg id="graph"></svg>
+
+    <script>
+        const data = __GRAPH_DATA__;
+
+        document.getElementById('totalAssemblies').textContent = data.statistics.totalAssemblies;
+
+        const width = window.innerWidth;
+        const height = window.innerHeight;
+        const svg = d3.select('#graph')
+            .attr('width', width)
+            .attr('height', height);
+
+        const defs = svg.append('defs');
+        defs.append('marker')
+            .attr('id', 'arrow-default')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 8)
+            .attr('refY', 0)
+            .attr('markerWidth', 7)
+            .attr('markerHeight', 7)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('fill', '#666')
+            .attr('d', 'M0,-5L10,0L0,5');
+
+        defs.append('marker')
+            .attr('id', 'arrow-unused')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 8)
+            .attr('refY', 0)
+            .attr('markerWidth', 7)
+            .attr('markerHeight', 7)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('fill', '#f44336')
+            .attr('d', 'M0,-5L10,0L0,5');
+
+        defs.append('marker')
+            .attr('id', 'arrow-active')
+            .attr('viewBox', '0 -5 10 10')
+            .attr('refX', 8)
+            .attr('refY', 0)
+            .attr('markerWidth', 8)
+            .attr('markerHeight', 8)
+            .attr('orient', 'auto')
+            .append('path')
+            .attr('fill', '#ff5252')
+            .attr('d', 'M0,-5L10,0L0,5');
+
+        const g = svg.append('g');
+        let selectedNodeId = null;
+
+        const zoom = d3.zoom()
+            .scaleExtent([0.1, 10])
+            .on('zoom', (event) => {
+                g.attr('transform', event.transform);
+            });
+
+        svg.call(zoom);
+
+        const tooltip = d3.select('#tooltip');
+
+        const simulation = d3.forceSimulation(data.nodes)
+            .force('link', d3.forceLink(data.edges)
+                .id(d => d.id)
+                .distance(d => 80 + (1 - ((d.source.centrality + d.target.centrality) * 0.5)) * 90))
+            .force('charge', d3.forceManyBody()
+                .strength(d => -120 - d.centrality * 500))
+            .force('center', d3.forceCenter(width / 2, height / 2))
+            .force('radial', d3.forceRadial(d => 120 + (1 - d.centrality) * 420, width / 2, height / 2).strength(0.9))
+            .force('collide', d3.forceCollide(d => 16 + d.centrality * 22));
+
+        const link = g.append('g')
+            .selectAll('line')
+            .data(data.edges)
+            .enter().append('line')
+            .attr('class', d => d.isUnused ? 'link unused' : 'link')
+            .attr('stroke-width', 2)
+            .attr('marker-end', d => d.isUnused ? 'url(#arrow-unused)' : 'url(#arrow-default)');
+
+        const node = g.append('g')
+            .selectAll('circle')
+            .data(data.nodes)
+            .enter().append('circle')
+            .attr('class', d => 'node ' + d.group)
+            .attr('r', d => 10 + d.centrality * 20)
+            .call(d3.drag()
+                .on('start', dragstarted)
+                .on('drag', dragged)
+                .on('end', dragended))
+            .on('mouseover', (event, d) => {
+                tooltip
+                    .style('display', 'block')
+                    .html(`
+                        <strong>${d.name}</strong><br/>
+                        Used by: ${d.usageCount} assemblies<br/>
+                        Dependencies: ${d.dependencyCount}<br/>
+                        Centrality: ${d.centrality.toFixed(2)}
+                    `)
+                    .style('left', `${event.pageX + 10}px`)
+                    .style('top', `${event.pageY - 10}px`);
+            })
+            .on('mouseout', () => {
+                tooltip.style('display', 'none');
+            })
+            .on('click', (event, d) => {
+                event.stopPropagation();
+                selectedNodeId = selectedNodeId === d.id ? null : d.id;
+                updateSelectionStyles();
+            });
+
+        const label = g.append('g')
+            .selectAll('text')
+            .data(data.nodes)
+            .enter().append('text')
+            .attr('class', 'node-label')
+            .text(d => d.name);
+
+        svg.on('click', () => {
+            if (selectedNodeId === null) {
+                return;
+            }
+
+            selectedNodeId = null;
+            updateSelectionStyles();
+        });
+
+        simulation.on('tick', () => {
+            link
+                .attr('x1', d => getEdgePoint(d, true).x)
+                .attr('y1', d => getEdgePoint(d, true).y)
+                .attr('x2', d => getEdgePoint(d, false).x)
+                .attr('y2', d => getEdgePoint(d, false).y);
+
+            node
+                .attr('cx', d => d.x)
+                .attr('cy', d => d.y);
+
+            label
+                .attr('x', d => d.x)
+                .attr('y', d => d.y - 20);
+        });
+
+        updateSelectionStyles();
+
+        function dragstarted(event, d) {
+            if (!event.active) {
+                simulation.alphaTarget(0.3).restart();
+            }
+
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) {
+                simulation.alphaTarget(0);
+            }
+
+            d.fx = null;
+            d.fy = null;
+        }
+
+        function getNodeRadius(d) {
+            return 10 + d.centrality * 20;
+        }
+
+        function getEdgePoint(d, isSource) {
+            const from = d.source;
+            const to = d.target;
+            const dx = to.x - from.x;
+            const dy = to.y - from.y;
+            const length = Math.sqrt(dx * dx + dy * dy) || 1;
+            const offset = getNodeRadius(isSource ? from : to) + (isSource ? 1 : 10);
+
+            if (isSource) {
+                return {
+                    x: from.x + dx / length * offset,
+                    y: from.y + dy / length * offset
+                };
+            }
+
+            return {
+                x: to.x - dx / length * offset,
+                y: to.y - dy / length * offset
+            };
+        }
+
+        function updateSelectionStyles() {
+            const activeDependencies = new Set();
+            const selectedNode = selectedNodeId === null
+                ? null
+                : data.nodes.find(node => node.id === selectedNodeId) ?? null;
+
+            if (selectedNodeId !== null) {
+                data.edges.forEach(edge => {
+                    const sourceId = typeof edge.source === 'object' ? edge.source.id : edge.source;
+                    const targetId = typeof edge.target === 'object' ? edge.target.id : edge.target;
+
+                    if (sourceId === selectedNodeId) {
+                        activeDependencies.add(targetId);
+                    }
+                });
+            }
+
+            link
+                .classed('dependency-active', d => selectedNodeId !== null && d.source.id === selectedNodeId)
+                .classed('link-dimmed', d => selectedNodeId !== null && d.source.id !== selectedNodeId)
+                .attr('stroke-width', d => selectedNodeId !== null && d.source.id === selectedNodeId ? 4 : 2)
+                .attr('marker-end', d => {
+                    if (selectedNodeId !== null && d.source.id === selectedNodeId) {
+                        return 'url(#arrow-active)';
+                    }
+
+                    return d.isUnused ? 'url(#arrow-unused)' : 'url(#arrow-default)';
+                });
+
+            node
+                .classed('node-selected', d => d.id === selectedNodeId)
+                .classed('node-dependency', d => selectedNodeId !== null && activeDependencies.has(d.id))
+                .classed('node-dimmed', d => selectedNodeId !== null && d.id !== selectedNodeId && !activeDependencies.has(d.id));
+
+            label
+                .classed('label-selected', d => d.id === selectedNodeId)
+                .classed('label-dependency', d => selectedNodeId !== null && activeDependencies.has(d.id))
+                .classed('label-dimmed', d => selectedNodeId !== null && d.id !== selectedNodeId && !activeDependencies.has(d.id));
+
+            document.getElementById('selectedName').textContent = selectedNode ? selectedNode.name : 'None';
+            document.getElementById('selectedDeps').textContent = selectedNode ? selectedNode.dependencyCount : 0;
+        }
+    </script>
+</body>
+</html>
