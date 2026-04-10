@@ -4,4 +4,6 @@
   "displayName": "AnalyzeDependencies",
   "unity": "2021.3",
   "description": "UPM package for VladislavTsurikov.AnalyzeDependencies.",
+   "dependencies": {
+  }
 }
