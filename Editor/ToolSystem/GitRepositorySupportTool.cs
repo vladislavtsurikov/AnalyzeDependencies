@@ -69,7 +69,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
             int skippedCount = 0;
             int failedCount = 0;
             var summary = new StringBuilder();
-            var repositoryRoots = new List<string>();
+            var items = new List<RepositoryItem>();
 
             foreach (AssemblyInfo assembly in assemblies)
             {
@@ -81,25 +81,82 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                     continue;
                 }
 
-                repositoryRoots.Add(repositoryRoot);
+                if (GitRepositoryUtility.IsRegisteredSubmodule(rootRepositoryPath, repositoryRoot))
+                {
+                    skippedCount++;
+                    summary.AppendLine($"Skipped {assembly.Name}: already registered as a submodule.");
+                    continue;
+                }
+
+                items.Add(new RepositoryItem(assembly, repositoryRoot));
             }
 
             try
             {
-                EditorUtility.DisplayProgressBar("Register Git Submodules", "Preparing selected repositories...", 0.25f);
+                int totalSteps = Math.Max(items.Count * 2, 1);
+                int currentStep = 0;
 
-                GitRepositoryUtility.BatchRegistrationResult result = GitRepositoryUtility.RegisterSubmodules(rootRepositoryPath, repositoryRoots);
-                registeredCount = result.Messages.Count;
-                foreach (string message in result.Messages)
+                foreach (RepositoryItem item in items)
                 {
-                    summary.AppendLine(message);
+                    currentStep++;
+                    EditorUtility.DisplayProgressBar(
+                        "Register Git Submodules",
+                        $"Checking initial commit for {item.Assembly.Name}",
+                        currentStep / (float)totalSteps);
+
+                    try
+                    {
+                        if (GitRepositoryUtility.RepositoryHasCommit(item.RepositoryRoot))
+                            continue;
+
+                        EditorUtility.DisplayProgressBar(
+                            "Register Git Submodules",
+                            $"Creating initial commit for {item.Assembly.Name}",
+                            currentStep / (float)totalSteps);
+
+                        item.InitialCommitMessage = GitRepositoryUtility.CreateInitialCommit(item.RepositoryRoot);
+                    }
+                    catch (Exception exception)
+                    {
+                        item.HasFailed = true;
+                        failedCount++;
+                        summary.AppendLine($"Failed {item.Assembly.Name}: {exception.Message}");
+                        Debug.LogError($"[AnalyzeDependencies][GitRepositorySupport] Failed while preparing {item.Assembly.Name}: {exception}");
+                    }
                 }
-            }
-            catch (Exception exception)
-            {
-                failedCount = repositoryRoots.Count;
-                summary.AppendLine(exception.Message);
-                Debug.LogError($"[AnalyzeDependencies][GitRepositorySupport] Batch submodule registration failed: {exception}");
+
+                foreach (RepositoryItem item in items)
+                {
+                    currentStep++;
+
+                    if (item.HasFailed)
+                        continue;
+
+                    EditorUtility.DisplayProgressBar(
+                        "Register Git Submodules",
+                        $"Registering submodule for {item.Assembly.Name}",
+                        currentStep / (float)totalSteps);
+
+                    try
+                    {
+                        string result = GitRepositoryUtility.RegisterSubmodule(rootRepositoryPath, item.RepositoryRoot, item.InitialCommitMessage);
+                        if (result.StartsWith("Skipped ", StringComparison.Ordinal))
+                        {
+                            skippedCount++;
+                            summary.AppendLine(result);
+                            continue;
+                        }
+
+                        registeredCount++;
+                        summary.AppendLine(result);
+                    }
+                    catch (Exception exception)
+                    {
+                        failedCount++;
+                        summary.AppendLine($"Failed {item.Assembly.Name}: {exception.Message}");
+                        Debug.LogError($"[AnalyzeDependencies][GitRepositorySupport] Failed for {item.Assembly.Name}: {exception}");
+                    }
+                }
             }
             finally
             {
@@ -227,6 +284,20 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
             Success,
             Skipped,
             Failed
+        }
+
+        private sealed class RepositoryItem
+        {
+            public readonly AssemblyInfo Assembly;
+            public readonly string RepositoryRoot;
+            public string InitialCommitMessage;
+            public bool HasFailed;
+
+            public RepositoryItem(AssemblyInfo assembly, string repositoryRoot)
+            {
+                Assembly = assembly;
+                RepositoryRoot = repositoryRoot;
+            }
         }
     }
 }

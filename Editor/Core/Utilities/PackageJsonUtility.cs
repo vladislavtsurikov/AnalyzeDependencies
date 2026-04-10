@@ -10,6 +10,12 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core.Utilities
     public static class PackageJsonUtility
     {
         private const string InternalPackagePrefix = "com.vladislavtsurikov.";
+        private static readonly string[] AssemblyPrefixes =
+        {
+            "VladislavTsurikov.",
+            "VladislavTrurikov."
+        };
+
         private static readonly Regex WhitespacesRegex = new Regex(@"\s+", RegexOptions.Compiled);
 
         public static string GetPackageRoot(string asmdefPath)
@@ -63,13 +69,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core.Utilities
 
         public static string BuildPackageName(string assemblyName)
         {
-            if (string.IsNullOrWhiteSpace(assemblyName))
-                return InternalPackagePrefix.TrimEnd('.');
-
-            string normalized = assemblyName.StartsWith("VladislavTsurikov.", StringComparison.Ordinal)
-                ? assemblyName.Substring("VladislavTsurikov.".Length)
-                : assemblyName;
-
+            string normalized = GetPackageShortName(assemblyName);
             normalized = normalized.Trim('.');
             if (string.IsNullOrEmpty(normalized))
                 return InternalPackagePrefix.TrimEnd('.');
@@ -84,19 +84,16 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core.Utilities
 
         public static string BuildDisplayName(string assemblyName)
         {
-            if (string.IsNullOrWhiteSpace(assemblyName))
-                return "VladislavTsurikov Package";
-
-            string normalized = assemblyName.StartsWith("VladislavTsurikov.", StringComparison.Ordinal)
-                ? assemblyName.Substring("VladislavTsurikov.".Length)
-                : assemblyName;
+            string normalized = GetPackageShortName(assemblyName);
+            if (string.IsNullOrWhiteSpace(normalized))
+                return "Package";
 
             return normalized.Replace('.', ' ');
         }
 
         public static string BuildDescription(string assemblyName)
         {
-            return $"UPM package for {assemblyName}.";
+            return $"UPM package for {BuildDisplayName(assemblyName)}.";
         }
 
         public static string CreateMinimalPackageJson(string assemblyName)
@@ -201,6 +198,20 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core.Utilities
                 .Replace("vladislavtsurikov.", string.Empty);
 
             return WhitespacesRegex.Replace(lower.Replace('-', ' ').Replace('_', ' ').Replace('.', ' '), " ").Trim();
+        }
+
+        private static string GetPackageShortName(string assemblyName)
+        {
+            if (string.IsNullOrWhiteSpace(assemblyName))
+                return string.Empty;
+
+            foreach (string prefix in AssemblyPrefixes)
+            {
+                if (assemblyName.StartsWith(prefix, StringComparison.Ordinal))
+                    return assemblyName.Substring(prefix.Length);
+            }
+
+            return assemblyName;
         }
 
         private static string SerializeDependenciesObject(IReadOnlyDictionary<string, string> dependencies)

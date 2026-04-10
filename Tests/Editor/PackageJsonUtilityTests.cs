@@ -15,6 +15,18 @@ namespace VladislavTsurikov.AnalyzeDependencies.Tests.Editor
         }
 
         [Test]
+        public void BuildPackageMetadata_StripsLegacyTypoPrefix()
+        {
+            string packageName = PackageJsonUtility.BuildPackageName("VladislavTrurikov.GameObjectCollider");
+            string displayName = PackageJsonUtility.BuildDisplayName("VladislavTrurikov.GameObjectCollider");
+            string description = PackageJsonUtility.BuildDescription("VladislavTrurikov.GameObjectCollider");
+
+            Assert.That(packageName, Is.EqualTo("com.vladislavtsurikov.gameobjectcollider"));
+            Assert.That(displayName, Is.EqualTo("GameObjectCollider"));
+            Assert.That(description, Is.EqualTo("UPM package for GameObjectCollider."));
+        }
+
+        [Test]
         public void UpsertDependencies_PreservesMetadataAndSortsDependencies()
         {
             const string json = "{\n" +
