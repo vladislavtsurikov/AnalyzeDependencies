@@ -11,6 +11,8 @@ using VladislavTsurikov.AnalyzeDependencies.Editor.Core.Utilities;
 using VladislavTsurikov.ReflectionUtility;
 using VladislavTsurikov.ToolSystem.Runtime.Core;
 using VladislavTsurikov.ToolSystem.Runtime.Core.Attributes;
+using Process = System.Diagnostics.Process;
+using ProcessStartInfo = System.Diagnostics.ProcessStartInfo;
 
 namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 {
@@ -190,6 +192,111 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                 "OK");
         }
 
+        public void GenerateGitManifestSnippet()
+        {
+            List<AssemblyInfo> assemblies = DependencyAnalyzerInitialize.Instance.GetSelectedAssembliesSorted();
+            if (assemblies.Count == 0)
+            {
+                EditorUtility.DisplayDialog("No asmdefs selected", "Select at least one asmdef in the shared dependency selection block.", "OK");
+                return;
+            }
+
+            try
+            {
+                Dictionary<string, LocalPackageInfo> packagesById = BuildLocalPackageMap();
+                var internalDependencies = new SortedDictionary<string, string>(StringComparer.Ordinal);
+                var externalDependencies = new SortedDictionary<string, string>(StringComparer.Ordinal);
+                var unresolvedPackages = new List<string>();
+                var queue = new Queue<string>();
+                var visited = new HashSet<string>(StringComparer.Ordinal);
+
+                foreach (AssemblyInfo assembly in assemblies)
+                {
+                    string packageRoot = PackageJsonUtility.GetPackageRoot(assembly.Path);
+                    string packageJsonPath = PackageJsonUtility.GetPackageJsonPath(packageRoot);
+
+                    if (!File.Exists(packageJsonPath) ||
+                        !PackageJsonUtility.TryReadPackageMetadata(packageJsonPath, out string packageId, out _))
+                    {
+                        unresolvedPackages.Add($"{assembly.Name} (package.json missing or invalid)");
+                        continue;
+                    }
+
+                    queue.Enqueue(packageId);
+                }
+
+                while (queue.Count > 0)
+                {
+                    string packageId = queue.Dequeue();
+                    if (!visited.Add(packageId))
+                        continue;
+
+                    if (!packagesById.TryGetValue(packageId, out LocalPackageInfo packageInfo))
+                    {
+                        unresolvedPackages.Add(packageId);
+                        continue;
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(packageInfo.RemoteUrl))
+                    {
+                        internalDependencies[packageId] = BuildGitDependencyValue(packageInfo.RemoteUrl, packageInfo.Branch);
+                    }
+                    else
+                    {
+                        unresolvedPackages.Add($"{packageId} (git remote missing)");
+                    }
+
+                    foreach (KeyValuePair<string, string> dependency in packageInfo.Dependencies)
+                    {
+                        if (dependency.Key.StartsWith("com.vladislavtsurikov.", StringComparison.Ordinal))
+                        {
+                            queue.Enqueue(dependency.Key);
+                        }
+                        else if (!string.IsNullOrWhiteSpace(dependency.Value))
+                        {
+                            externalDependencies[dependency.Key] = dependency.Value;
+                        }
+                    }
+                }
+
+                var snippetDependencies = new SortedDictionary<string, string>(StringComparer.Ordinal);
+                foreach (KeyValuePair<string, string> dependency in externalDependencies)
+                {
+                    snippetDependencies[dependency.Key] = dependency.Value;
+                }
+
+                foreach (KeyValuePair<string, string> dependency in internalDependencies)
+                {
+                    snippetDependencies[dependency.Key] = dependency.Value;
+                }
+
+                string snippet = BuildManifestSnippet(snippetDependencies);
+                EditorGUIUtility.systemCopyBuffer = snippet;
+
+                string summary = $"Copied manifest.json snippet to clipboard.\n\nPackages: {internalDependencies.Count}\nExternal dependencies: {externalDependencies.Count}";
+                if (unresolvedPackages.Count > 0)
+                {
+                    summary += $"\nUnresolved: {unresolvedPackages.Count}\n\n{string.Join("\n", unresolvedPackages.Take(10))}";
+                    if (unresolvedPackages.Count > 10)
+                    {
+                        summary += "\n...";
+                    }
+                }
+                else
+                {
+                    summary += "\nUnresolved: 0";
+                }
+
+                Debug.Log($"[AnalyzeDependencies][UPMSupport] Generated manifest snippet:\n{snippet}");
+                EditorUtility.DisplayDialog("Git Manifest Snippet", summary, "OK");
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[AnalyzeDependencies][UPMSupport] Failed to generate manifest snippet: {exception}");
+                EditorUtility.DisplayDialog("Git Manifest Snippet", exception.Message, "OK");
+            }
+        }
+
         private static AssemblyDefinitionData LoadAssemblyDefinition(string asmdefPath)
         {
             string json = File.ReadAllText(asmdefPath);
@@ -331,6 +438,123 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                 return false;
 
             return referenceTokens.Last() == packageTokens.Last();
+        }
+
+        private static Dictionary<string, LocalPackageInfo> BuildLocalPackageMap()
+        {
+            var packagesById = new Dictionary<string, LocalPackageInfo>(StringComparer.Ordinal);
+            string projectRoot = Directory.GetParent(Application.dataPath)?.FullName;
+            if (string.IsNullOrEmpty(projectRoot))
+                return packagesById;
+
+            string assetsRoot = Path.Combine(projectRoot, "Assets", "VladislavTsurikov");
+            if (!Directory.Exists(assetsRoot))
+                return packagesById;
+
+            foreach (string packageJsonPath in Directory.GetFiles(assetsRoot, "package.json", SearchOption.AllDirectories))
+            {
+                if (!PackageJsonUtility.TryReadPackageMetadata(packageJsonPath, out string packageId, out string version))
+                    continue;
+
+                PackageJsonUtility.TryReadPackageDependencies(packageJsonPath, out Dictionary<string, string> dependencies);
+
+                string packageRoot = Path.GetDirectoryName(packageJsonPath);
+                packagesById[packageId] = new LocalPackageInfo
+                {
+                    PackageId = packageId,
+                    Version = string.IsNullOrWhiteSpace(version) ? "1.0.0" : version,
+                    PackageRoot = packageRoot,
+                    RemoteUrl = TryGetGitOutput(packageRoot, "remote get-url origin"),
+                    Branch = GetPreferredBranch(packageRoot),
+                    Dependencies = dependencies ?? new Dictionary<string, string>(StringComparer.Ordinal)
+                };
+            }
+
+            return packagesById;
+        }
+
+        private static string GetPreferredBranch(string workingDirectory)
+        {
+            string branch = TryGetGitOutput(workingDirectory, "rev-parse --abbrev-ref HEAD");
+            return string.IsNullOrWhiteSpace(branch) ? "master" : branch;
+        }
+
+        private static string BuildGitDependencyValue(string remoteUrl, string branch)
+        {
+            if (string.IsNullOrWhiteSpace(remoteUrl))
+                return string.Empty;
+
+            string normalizedUrl = remoteUrl.Trim();
+            if (normalizedUrl.StartsWith("git@github.com:", StringComparison.OrdinalIgnoreCase))
+            {
+                normalizedUrl = "https://github.com/" + normalizedUrl.Substring("git@github.com:".Length);
+            }
+
+            return string.IsNullOrWhiteSpace(branch)
+                ? normalizedUrl
+                : $"{normalizedUrl}#{branch}";
+        }
+
+        private static string BuildManifestSnippet(IReadOnlyDictionary<string, string> dependencies)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("{");
+            sb.AppendLine("  \"dependencies\": {");
+
+            int index = 0;
+            foreach (KeyValuePair<string, string> dependency in dependencies)
+            {
+                bool isLast = index == dependencies.Count - 1;
+                sb.AppendLine($"    \"{dependency.Key}\": \"{dependency.Value}\"{(isLast ? string.Empty : ",")}");
+                index++;
+            }
+
+            sb.AppendLine("  }");
+            sb.AppendLine("}");
+            return sb.ToString();
+        }
+
+        private static string TryGetGitOutput(string workingDirectory, string arguments)
+        {
+            if (string.IsNullOrWhiteSpace(workingDirectory) || !Directory.Exists(workingDirectory))
+                return null;
+
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "git",
+                    Arguments = arguments,
+                    WorkingDirectory = workingDirectory,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var process = Process.Start(startInfo);
+                if (process == null)
+                    return null;
+
+                string output = process.StandardOutput.ReadToEnd().Trim();
+                process.WaitForExit();
+
+                return process.ExitCode == 0 ? output : null;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private sealed class LocalPackageInfo
+        {
+            public string PackageId;
+            public string Version;
+            public string PackageRoot;
+            public string RemoteUrl;
+            public string Branch;
+            public Dictionary<string, string> Dependencies;
         }
     }
 }

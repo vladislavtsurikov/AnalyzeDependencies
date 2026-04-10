@@ -148,6 +148,39 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core.Utilities
             return !string.IsNullOrEmpty(packageName);
         }
 
+        public static bool TryReadPackageDependencies(string packageJsonPath, out Dictionary<string, string> dependencies)
+        {
+            dependencies = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            if (!File.Exists(packageJsonPath))
+                return false;
+
+            try
+            {
+                string json = File.ReadAllText(packageJsonPath);
+                return TryReadPackageDependenciesFromJson(json, out dependencies);
+            }
+            catch
+            {
+                dependencies = new Dictionary<string, string>(StringComparer.Ordinal);
+                return false;
+            }
+        }
+
+        public static bool TryReadPackageDependenciesFromJson(string json, out Dictionary<string, string> dependencies)
+        {
+            dependencies = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            if (!TryParseTopLevelProperties(json, out List<JsonPropertyEntry> properties))
+                return false;
+
+            JsonPropertyEntry dependenciesEntry = properties.FirstOrDefault(property => property.Name == "dependencies");
+            if (dependenciesEntry == null)
+                return true;
+
+            return TryParseStringDictionary(dependenciesEntry.RawValue, out dependencies);
+        }
+
         public static string UpsertDependencies(string json, IReadOnlyDictionary<string, string> dependencies)
         {
             if (!TryParseTopLevelProperties(json, out List<JsonPropertyEntry> properties))
@@ -255,6 +288,21 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core.Utilities
 
             sb.AppendLine("}");
             return sb.ToString();
+        }
+
+        private static bool TryParseStringDictionary(string json, out Dictionary<string, string> dictionary)
+        {
+            dictionary = new Dictionary<string, string>(StringComparer.Ordinal);
+
+            if (!TryParseTopLevelProperties(json, out List<JsonPropertyEntry> properties))
+                return false;
+
+            foreach (JsonPropertyEntry property in properties)
+            {
+                dictionary[property.Name] = TrimJsonString(property.RawValue);
+            }
+
+            return true;
         }
 
         private static bool TryParseTopLevelProperties(string json, out List<JsonPropertyEntry> properties)

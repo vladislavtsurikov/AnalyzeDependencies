@@ -9,6 +9,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
     {
         private Button _createButton;
         private Button _syncButton;
+        private Button _manifestSnippetButton;
         private Label _selectionHint;
 
         private UPMSupportTool Tool => (UPMSupportTool)Target;
@@ -18,7 +19,8 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
             var helpBox = new HelpBox(
                 "Creates UPM support for selected asmdefs and synchronizes package dependencies from asmdef references.\n\n" +
                 "Create UPM Support: writes a package.json if the asmdef folder does not have one yet.\n" +
-                "Sync Dependencies: updates package.json dependencies while keeping other fields intact.",
+                "Sync Dependencies: updates package.json dependencies while keeping other fields intact.\n" +
+                "Generate Git Manifest Snippet: copies a ready-to-paste manifest.json dependencies block for the selected packages and their internal dependencies.",
                 HelpBoxMessageType.Info);
             container.Add(helpBox);
 
@@ -38,6 +40,12 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
             _syncButton.style.height = 30;
             _syncButton.style.marginTop = 6;
             container.Add(_syncButton);
+
+            _manifestSnippetButton = new Button(() => Tool.GenerateGitManifestSnippet());
+            _manifestSnippetButton.text = "Generate Git Manifest Snippet";
+            _manifestSnippetButton.style.height = 30;
+            _manifestSnippetButton.style.marginTop = 6;
+            container.Add(_manifestSnippetButton);
         }
 
         protected override void OnAssemblySelectionChanged()
@@ -49,6 +57,9 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 
             if (_syncButton != null)
                 _syncButton.SetEnabled(hasSelection);
+
+            if (_manifestSnippetButton != null)
+                _manifestSnippetButton.SetEnabled(hasSelection);
 
             if (_selectionHint != null)
             {
