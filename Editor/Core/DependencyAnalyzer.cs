@@ -12,12 +12,13 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core
         private readonly Dictionary<string, string> _guidToName = new Dictionary<string, string>();
         private readonly Dictionary<string, AssemblyInfo> _assemblies = new Dictionary<string, AssemblyInfo>();
         private static readonly string[] AllowedRoots = { "Assets/", "Packages/" };
+        private static readonly IComparer<AssemblyInfo> AssemblySortComparer = Comparer<AssemblyInfo>.Create(CompareAssemblies);
 
         public List<AssemblyInfo> GetAllAssemblies() => _assemblies.Values.ToList();
-        public List<AssemblyInfo> GetAllAssembliesSorted() => _assemblies.Values.OrderBy(a => a.Name).ToList();
+        public List<AssemblyInfo> GetAllAssembliesSorted() => _assemblies.Values.OrderBy(assembly => assembly, AssemblySortComparer).ToList();
 
         public List<AssemblyInfo> GetSelectedAssemblies() => _assemblies.Values.Where(a => a.IsSelected).ToList();
-        public List<AssemblyInfo> GetSelectedAssembliesSorted() => _assemblies.Values.Where(a => a.IsSelected).OrderBy(a => a.Name).ToList();
+        public List<AssemblyInfo> GetSelectedAssembliesSorted() => _assemblies.Values.Where(a => a.IsSelected).OrderBy(assembly => assembly, AssemblySortComparer).ToList();
 
         public void SelectAll()
         {
@@ -190,6 +191,39 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core
 
             string fullPath = Path.GetFullPath(Path.Combine(projectRoot, normalized));
             return File.Exists(fullPath);
+        }
+
+        private static int CompareAssemblies(AssemblyInfo left, AssemblyInfo right)
+        {
+            if (ReferenceEquals(left, right))
+                return 0;
+
+            if (left == null)
+                return 1;
+
+            if (right == null)
+                return -1;
+
+            int groupCompare = GetPathSortGroup(left.Path).CompareTo(GetPathSortGroup(right.Path));
+            if (groupCompare != 0)
+                return groupCompare;
+
+            return string.Compare(left.Name, right.Name, System.StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static int GetPathSortGroup(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+                return 2;
+
+            string normalized = path.Replace('\\', '/');
+            if (normalized.StartsWith("Assets/", System.StringComparison.OrdinalIgnoreCase))
+                return 0;
+
+            if (normalized.StartsWith("Packages/", System.StringComparison.OrdinalIgnoreCase))
+                return 1;
+
+            return 2;
         }
     }
 }
