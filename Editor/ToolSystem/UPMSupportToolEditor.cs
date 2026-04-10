@@ -20,7 +20,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                 "Creates UPM support for selected asmdefs and synchronizes package dependencies from asmdef references.\n\n" +
                 "Create UPM Support: writes a package.json if the asmdef folder does not have one yet.\n" +
                 "Sync Dependencies: updates package.json dependencies while keeping other fields intact.\n" +
-                "Generate Git Manifest Snippet: copies a ready-to-paste manifest.json dependencies block for the selected packages and their internal dependencies.",
+                "Generate Dependencies Snippet: copies a ready-to-paste dependencies block for the selected packages and all package dependencies they need.",
                 HelpBoxMessageType.Info);
             container.Add(helpBox);
 
@@ -41,8 +41,8 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
             _syncButton.style.marginTop = 6;
             container.Add(_syncButton);
 
-            _manifestSnippetButton = new Button(() => Tool.GenerateGitManifestSnippet());
-            _manifestSnippetButton.text = "Generate Git Manifest Snippet";
+            _manifestSnippetButton = new Button(() => Tool.GenerateDependenciesSnippet());
+            _manifestSnippetButton.text = "Generate Dependencies Snippet";
             _manifestSnippetButton.style.height = 30;
             _manifestSnippetButton.style.marginTop = 6;
             container.Add(_manifestSnippetButton);

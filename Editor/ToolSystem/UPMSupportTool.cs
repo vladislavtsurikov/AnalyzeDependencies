@@ -192,7 +192,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                 "OK");
         }
 
-        public void GenerateGitManifestSnippet()
+        public void GenerateDependenciesSnippet()
         {
             List<AssemblyInfo> assemblies = DependencyAnalyzerInitialize.Instance.GetSelectedAssembliesSorted();
             if (assemblies.Count == 0)
@@ -270,10 +270,10 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                     snippetDependencies[dependency.Key] = dependency.Value;
                 }
 
-                string snippet = BuildManifestSnippet(snippetDependencies);
+                string snippet = BuildDependenciesSnippet(snippetDependencies);
                 EditorGUIUtility.systemCopyBuffer = snippet;
 
-                string summary = $"Copied manifest.json snippet to clipboard.\n\nPackages: {internalDependencies.Count}\nExternal dependencies: {externalDependencies.Count}";
+                string summary = $"Copied dependencies snippet to clipboard.\n\nSelected packages: {assemblies.Count}\nResolved internal packages: {internalDependencies.Count}\nExternal dependencies: {externalDependencies.Count}";
                 if (unresolvedPackages.Count > 0)
                 {
                     summary += $"\nUnresolved: {unresolvedPackages.Count}\n\n{string.Join("\n", unresolvedPackages.Take(10))}";
@@ -287,13 +287,13 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                     summary += "\nUnresolved: 0";
                 }
 
-                Debug.Log($"[AnalyzeDependencies][UPMSupport] Generated manifest snippet:\n{snippet}");
-                EditorUtility.DisplayDialog("Git Manifest Snippet", summary, "OK");
+                Debug.Log($"[AnalyzeDependencies][UPMSupport] Generated dependencies snippet:\n{snippet}");
+                EditorUtility.DisplayDialog("Dependencies Snippet", summary, "OK");
             }
             catch (Exception exception)
             {
-                Debug.LogError($"[AnalyzeDependencies][UPMSupport] Failed to generate manifest snippet: {exception}");
-                EditorUtility.DisplayDialog("Git Manifest Snippet", exception.Message, "OK");
+                Debug.LogError($"[AnalyzeDependencies][UPMSupport] Failed to generate dependencies snippet: {exception}");
+                EditorUtility.DisplayDialog("Dependencies Snippet", exception.Message, "OK");
             }
         }
 
@@ -495,22 +495,20 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                 : $"{normalizedUrl}#{branch}";
         }
 
-        private static string BuildManifestSnippet(IReadOnlyDictionary<string, string> dependencies)
+        private static string BuildDependenciesSnippet(IReadOnlyDictionary<string, string> dependencies)
         {
             var sb = new StringBuilder();
-            sb.AppendLine("{");
-            sb.AppendLine("  \"dependencies\": {");
+            sb.AppendLine("\"dependencies\": {");
 
             int index = 0;
             foreach (KeyValuePair<string, string> dependency in dependencies)
             {
                 bool isLast = index == dependencies.Count - 1;
-                sb.AppendLine($"    \"{dependency.Key}\": \"{dependency.Value}\"{(isLast ? string.Empty : ",")}");
+                sb.AppendLine($"  \"{dependency.Key}\": \"{dependency.Value}\"{(isLast ? string.Empty : ",")}");
                 index++;
             }
 
-            sb.AppendLine("  }");
-            sb.AppendLine("}");
+            sb.Append("}");
             return sb.ToString();
         }
 
