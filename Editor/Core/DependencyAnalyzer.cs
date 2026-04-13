@@ -4,15 +4,21 @@ using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using VladislavTsurikov.AnalyzeDependencies.Editor.Core.Models;
+using VladislavTsurikov.Utility.Runtime;
 
 namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core
 {
-    public class DependencyAnalyzer
+    public sealed class DependencyAnalyzer : DataTypeSingleton<DependencyAnalyzer>
     {
         private readonly Dictionary<string, string> _guidToName = new Dictionary<string, string>();
         private readonly Dictionary<string, AssemblyInfo> _assemblies = new Dictionary<string, AssemblyInfo>();
         private static readonly string[] AllowedRoots = { "Assets/", "Packages/" };
         private static readonly IComparer<AssemblyInfo> AssemblySortComparer = Comparer<AssemblyInfo>.Create(CompareAssemblies);
+
+        public DependencyAnalyzer()
+        {
+            BuildAssemblyDatabase();
+        }
 
         public List<AssemblyInfo> GetAllAssemblies() => _assemblies.Values.ToList();
         public List<AssemblyInfo> GetAllAssembliesSorted() => _assemblies.Values.OrderBy(assembly => assembly, AssemblySortComparer).ToList();
@@ -159,8 +165,6 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.Core
                     Debug.LogWarning($"Failed to parse {path}: {e.Message}");
                 }
             }
-
-            Debug.Log($"Found {_assemblies.Count} assemblies");
         }
 
         public string GetAssemblyNameByGuid(string guid) => _guidToName.ContainsKey(guid) ? _guidToName[guid] : guid;

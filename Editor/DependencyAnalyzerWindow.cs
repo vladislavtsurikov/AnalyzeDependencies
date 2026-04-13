@@ -23,7 +23,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor
 
         private void OnEnable()
         {
-            _analyzer = DependencyAnalyzerInitialize.Instance;
+            _analyzer = DependencyAnalyzer.Instance;
             _toolStack = new ToolStack();
             _toolsEditor = new ToolStackEditor(_toolStack);
         }

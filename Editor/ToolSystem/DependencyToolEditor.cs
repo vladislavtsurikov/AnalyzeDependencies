@@ -21,7 +21,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
             {
                 if (_analyzer == null)
                 {
-                    _analyzer = DependencyAnalyzerInitialize.Instance;
+                    _analyzer = DependencyAnalyzer.Instance;
                 }
 
                 return _analyzer;

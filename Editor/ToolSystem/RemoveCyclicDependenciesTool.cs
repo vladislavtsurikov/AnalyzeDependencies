@@ -28,7 +28,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 
         private void DetectCycles()
         {
-            var analyzer = DependencyAnalyzerInitialize.Instance;
+            var analyzer = DependencyAnalyzer.Instance;
             var detector = new CyclicDependencyDetector(analyzer);
             _cycles = detector.DetectCycles();
 

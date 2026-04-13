@@ -40,7 +40,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
             if (_analysisInProgress)
                 return;
 
-            var analyzer = DependencyAnalyzerInitialize.Instance;
+            var analyzer = DependencyAnalyzer.Instance;
             List<AssemblyInfo> selectedAssemblies = analyzer.GetSelectedAssembliesSorted()
                 .Where(assembly => DependencyAnalyzer.IsAllowedAssemblyPath(assembly.Path))
                 .ToList();
@@ -207,7 +207,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                 EditorUtility.ClearProgressBar();
                 EditorUtility.DisplayDialog("Complete", $"Removed {removedCount} unused dependencies from {_assembliesToProcess.Count} assembly(ies).", "OK");
 
-                var analyzer = DependencyAnalyzerInitialize.Instance;
+                var analyzer = DependencyAnalyzer.Instance;
                 analyzer.BuildAssemblyDatabase();
                 ClearTrackedUnusedDependencies();
                 _analysisPerformed = true;

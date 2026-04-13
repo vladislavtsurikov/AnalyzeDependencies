@@ -40,7 +40,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 
         public void RegisterSubmodules()
         {
-            List<AssemblyInfo> assemblies = DependencyAnalyzerInitialize.Instance.GetSelectedAssembliesSorted();
+            List<AssemblyInfo> assemblies = DependencyAnalyzer.Instance.GetSelectedAssembliesSorted();
             if (assemblies.Count == 0)
             {
                 EditorUtility.DisplayDialog("No asmdefs selected", "Select at least one asmdef in the shared dependency selection block.", "OK");
@@ -202,7 +202,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
             string successLabel,
             Func<string, OperationResult> operation)
         {
-            List<AssemblyInfo> assemblies = DependencyAnalyzerInitialize.Instance.GetSelectedAssembliesSorted();
+            List<AssemblyInfo> assemblies = DependencyAnalyzer.Instance.GetSelectedAssembliesSorted();
             if (assemblies.Count == 0)
             {
                 EditorUtility.DisplayDialog("No asmdefs selected", "Select at least one asmdef in the shared dependency selection block.", "OK");

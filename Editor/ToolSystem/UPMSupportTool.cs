@@ -27,7 +27,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 
         public void CreateUpmSupport()
         {
-            List<AssemblyInfo> assemblies = DependencyAnalyzerInitialize.Instance.GetSelectedAssembliesSorted();
+            List<AssemblyInfo> assemblies = DependencyAnalyzer.Instance.GetSelectedAssembliesSorted();
             if (assemblies.Count == 0)
             {
                 EditorUtility.DisplayDialog("No asmdefs selected", "Select at least one asmdef in the shared dependency selection block.", "OK");
@@ -88,7 +88,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 
         public void SyncDependencies()
         {
-            List<AssemblyInfo> assemblies = DependencyAnalyzerInitialize.Instance.GetSelectedAssembliesSorted();
+            List<AssemblyInfo> assemblies = DependencyAnalyzer.Instance.GetSelectedAssembliesSorted();
             if (assemblies.Count == 0)
             {
                 EditorUtility.DisplayDialog("No asmdefs selected", "Select at least one asmdef in the shared dependency selection block.", "OK");
@@ -194,7 +194,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 
         public void GenerateDependenciesSnippet()
         {
-            List<AssemblyInfo> assemblies = DependencyAnalyzerInitialize.Instance.GetSelectedAssembliesSorted();
+            List<AssemblyInfo> assemblies = DependencyAnalyzer.Instance.GetSelectedAssembliesSorted();
             if (assemblies.Count == 0)
             {
                 EditorUtility.DisplayDialog("No asmdefs selected", "Select at least one asmdef in the shared dependency selection block.", "OK");
@@ -327,7 +327,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
                 ? reference.Substring(5)
                 : reference;
 
-            DependencyAnalyzer analyzer = DependencyAnalyzerInitialize.Instance;
+            DependencyAnalyzer analyzer = DependencyAnalyzer.Instance;
             Dictionary<string, string> guidToName = analyzer.GetGuidToNameMap();
             Dictionary<string, AssemblyInfo> assembliesByName = analyzer.GetAssembliesDictionary();
 

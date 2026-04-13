@@ -22,7 +22,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 
         public void Export()
         {
-            var analyzer = DependencyAnalyzerInitialize.Instance;
+            var analyzer = DependencyAnalyzer.Instance;
             var selectedAssemblies = analyzer.GetSelectedAssembliesSorted();
             var assembliesToExport = selectedAssemblies.Count > 0 ? selectedAssemblies : analyzer.GetAllAssembliesSorted();
 
