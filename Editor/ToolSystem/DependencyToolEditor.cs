@@ -12,7 +12,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
     public abstract class DependencyToolEditor : UIToolkitToolEditor
     {
         private DependencyAnalyzer _analyzer;
-        private SearchView _assembliesSearchView;
+        private SearchListView _assembliesSearchView;
         private Label _selectionLabel;
 
         protected DependencyAnalyzer Analyzer
@@ -103,7 +103,7 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 
             section.Add(buttonsRow);
 
-            _assembliesSearchView = new SearchView
+            _assembliesSearchView = new SearchListView
             {
                 HeaderTitle = "Asmdef Selection",
                 PlaceholderText = "Search asmdef",
