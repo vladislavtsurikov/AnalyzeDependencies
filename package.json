@@ -1,5 +1,4 @@
-
-{
+﻿{
   "name": "com.vladislavtsurikov.analyzedependencies",
   "version": "1.0.0",
   "displayName": "AnalyzeDependencies",
@@ -11,6 +10,7 @@
     "com.vladislavtsurikov.nody": "1.0.0",
     "com.vladislavtsurikov.reflectionutility": "1.0.0",
     "com.vladislavtsurikov.searchutility": "1.0.0",
-    "com.vladislavtsurikov.toolsystem": "1.0.0"
+    "com.vladislavtsurikov.toolsystem": "1.0.0",
+    "com.vladislavtsurikov.utility": "1.0.0"
   }
 }

@@ -105,7 +105,6 @@ namespace VladislavTsurikov.AnalyzeDependencies.Editor.ToolSystem
 
             _assembliesSearchView = new SearchListView
             {
-                HeaderTitle = "Asmdef Selection",
                 PlaceholderText = "Search asmdef",
                 SelectionType = SelectionType.Multiple,
                 ItemsSource = Analyzer.GetAllAssembliesSorted(),
